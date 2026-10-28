@@ -126,6 +126,10 @@
       scrollbar-width: none;
     }
 
+    .controls-strip::-webkit-scrollbar {
+      display: none;
+    }
+
     .pill-select-wrapper {
       position: relative;
       flex-shrink: 0;
@@ -182,6 +186,11 @@
       font-weight: 600;
       color: var(--primary-emerald);
       cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .category-chip:hover {
+      background: #EFE9DB;
     }
 
     .message-row {
@@ -240,7 +249,6 @@
       border-radius: 4px;
     }
 
-    /* Live Real Elapsed Timer */
     .timer-indicator {
       display: inline-flex;
       align-items: center;
@@ -313,13 +321,27 @@
       justify-content: center;
       cursor: pointer;
       flex-shrink: 0;
+      font-size: 1.1rem;
+      transition: all 0.2s;
+    }
+
+    .mic-btn {
+      background: var(--surface-card);
+      border: 1.5px solid var(--border-subtle);
+      color: var(--primary-emerald);
+    }
+
+    .mic-btn.listening {
+      background: #FEE2E2;
+      border-color: var(--danger);
+      color: var(--danger);
+      animation: pulseDot 0.8s infinite alternate;
     }
 
     .send-btn {
       background: linear-gradient(135deg, var(--primary-emerald), var(--primary-dark));
       color: var(--accent-gold);
       border: 1px solid var(--accent-gold);
-      font-size: 1.1rem;
     }
 
     .stop-btn {
@@ -381,7 +403,9 @@
   </main>
 
   <footer class="input-wrapper">
-    <input type="text" id="promptInput" class="chat-textarea" placeholder="സംശയങ്ങൾ ചോദിക്കുക (Malayalam / Manglish)..." onkeydown="handleKey(event)" autocomplete="off">
+    <!-- Voice Recognition Button -->
+    <button id="micBtn" class="composer-btn mic-btn" onclick="toggleSpeech()" title="ശബ്ദത്തിലൂടെ ചോദിക്കൂ">🎙️</button>
+    <input type="text" id="promptInput" class="chat-textarea" placeholder="സംശയങ്ങൾ ചോദിക്കുക അല്ലെങ്കിൽ വോയ്‌സ് നൽകുക..." onkeydown="handleKey(event)" autocomplete="off">
     <button id="sendBtn" class="composer-btn send-btn" onclick="submitFastQuery()" title="ചോദിക്കൂ">➤</button>
     <button id="stopBtn" class="composer-btn stop-btn" onclick="cancelCurrentQuery()" title="നിർത്തുക">⏹</button>
   </footer>
@@ -391,6 +415,65 @@
   const API_KEY = "AQ.Ab8RN6KAkbjS6ld1GBANt-hH4jinfymIhj7Jyczc0ropZPJrEg";
   let activeAbortController = null;
   let activeTimerInterval = null;
+  let recognition = null;
+  let isListening = false;
+
+  // Initialize Speech Recognition
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'ml-IN';
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      const input = document.getElementById("promptInput");
+      input.value = transcript;
+      stopListeningUI();
+      submitFastQuery();
+    };
+
+    recognition.onerror = () => {
+      stopListeningUI();
+    };
+
+    recognition.onend = () => {
+      stopListeningUI();
+    };
+  }
+
+  function toggleSpeech() {
+    if (!recognition) {
+      alert("നിങ്ങളുടെ ബ്രൗസറിൽ മൈക്രോഫോൺ സൗകര്യം ലഭ്യമല്ല.");
+      return;
+    }
+    if (isListening) {
+      recognition.stop();
+      stopListeningUI();
+    } else {
+      try {
+        const langChoice = document.getElementById("langSelect").value;
+        recognition.lang = (langChoice === 'english') ? 'en-US' : (langChoice === 'arabic') ? 'ar-SA' : 'ml-IN';
+        recognition.start();
+        isListening = true;
+        const micBtn = document.getElementById("micBtn");
+        micBtn.classList.add("listening");
+        micBtn.innerText = "🛑";
+      } catch (e) {
+        stopListeningUI();
+      }
+    }
+  }
+
+  function stopListeningUI() {
+    isListening = false;
+    const micBtn = document.getElementById("micBtn");
+    if (micBtn) {
+      micBtn.classList.remove("listening");
+      micBtn.innerText = "🎙️";
+    }
+  }
 
   function quickFill(val) {
     const input = document.getElementById("promptInput");
@@ -416,16 +499,22 @@
     const query = input.value.trim();
     if (!query) return;
 
+    if (isListening && recognition) {
+      recognition.stop();
+      stopListeningUI();
+    }
+
     const sendBtn = document.getElementById("sendBtn");
     const stopBtn = document.getElementById("stopBtn");
+    const micBtn = document.getElementById("micBtn");
     const stream = document.getElementById("chatStream");
 
     appendUserMessage(query);
     input.value = "";
     sendBtn.style.display = "none";
+    micBtn.style.display = "none";
     stopBtn.style.display = "flex";
 
-    // Create AI bubble
     const aiRow = document.createElement("article");
     aiRow.className = "message-row ai";
 
@@ -445,7 +534,6 @@
     stream.appendChild(aiRow);
     stream.scrollTop = stream.scrollHeight;
 
-    // Start exact monotonic timer
     const startTime = performance.now();
     activeTimerInterval = setInterval(() => {
       const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
@@ -466,7 +554,6 @@
 അനാവശ്യ ദീർഘിപ്പിക്കലുകൾ ഒഴിവാക്കി ഏറ്റവും കൃത്യവും ആധികാരികവുമായ കാര്യങ്ങൾ മാത്രം വേഗത്തിൽ വ്യക്തമാക്കുക.`;
 
     try {
-      // Direct fast API call
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`, {
         method: "POST",
         signal: activeAbortController.signal,
@@ -508,6 +595,7 @@
       activeTimerInterval = null;
       activeAbortController = null;
       sendBtn.style.display = "flex";
+      micBtn.style.display = "flex";
       stopBtn.style.display = "none";
       stream.scrollTop = stream.scrollHeight;
     }
@@ -529,6 +617,13 @@
 
   function escapeHTML(str) {
     return str.replace(/[&<>'"]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t] || t));
+  }
+
+  // Register PWA Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
   }
 </script>
 </body>
