@@ -1,0 +1,21 @@
+{
+  "short_name": "AlMufti",
+  "name": "അൽ മുഫ്തി — Al Mufti Islamic AI",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/192/mosque.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/mosque.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#061914",
+  "theme_color": "#073D32",
+  "display": "standalone",
+  "orientation": "portrait"
+}
